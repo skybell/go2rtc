@@ -1,7 +1,9 @@
 package webrtc
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -100,11 +102,28 @@ func outputWebRTC(w http.ResponseWriter, r *http.Request) {
 
 	switch mediaType {
 	case "application/json":
-		desc = "WebRTC/JSON sync"
+		desc = "WebRTC/HTTP sync"
 	case MimeSDP:
 		desc = "WebRTC/WHEP sync"
 	default:
-		desc = "WebRTC/HTTP sync"
+		desc = "WebRTC/JSON sync"
+	}
+
+
+	// Make things work for KVS!
+	if strings.HasPrefix(offer, "data=") {
+		b64Data := offer[5:]
+		decodedData, err := base64.StdEncoding.DecodeString(b64Data)
+		if err != nil {
+			fmt.Println("Error decoding base64:", err)
+		} else {
+			// Convert the decoded data to a string save the offer
+			decodedString := string(decodedData)
+			decodedString = strings.Replace(decodedString, "a=mid:0", "a=mid:audio", -1)
+			decodedString = strings.Replace(decodedString, "a=mid:1", "a=mid:video", -1)
+			decodedString = strings.Replace(decodedString, "a=group:BUNDLE 0 1", "a=group:BUNDLE audio video", -1)
+			offer = decodedString
+		}
 	}
 
 	answer, err := ExchangeSDP(stream, offer, desc, r.UserAgent())

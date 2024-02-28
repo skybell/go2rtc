@@ -3,6 +3,8 @@ package webrtc
 import (
 	"errors"
 	"strings"
+	"fmt"
+	"encoding/base64"
 
 	"github.com/AlexxIT/go2rtc/internal/api"
 	"github.com/AlexxIT/go2rtc/internal/api/ws"
@@ -227,6 +229,21 @@ func ExchangeSDP(stream *streams.Stream, offer, desc, userAgent string) (answer 
 
 	// 1. SetOffer, so we can get remote client codecs
 	log.Trace().Msgf("[webrtc] offer:\n%s", offer)
+    if strings.HasPrefix(offer, "data=") {
+       b64Data := offer[5:]
+       b64Data = strings.Replace(b64Data, "%3D", "", -1)
+       decodedData, err := base64.StdEncoding.DecodeString(b64Data)
+       if err != nil {
+               fmt.Println("Error decoding base64:", err)
+       } else {
+               // Convert the decoded data to a string save the offer
+               decodedString := string(decodedData)
+               decodedString = strings.Replace(decodedString, "a=mid:0", "a=mid:audio", -1)
+               decodedString = strings.Replace(decodedString, "a=mid:1", "a=mid:video", -1)
+               decodedString = strings.Replace(decodedString, "a=group:BUNDLE 0 1", "a=group:BUNDLE audio video", -1)
+               offer = decodedString
+       }
+    }
 
 	if err = conn.SetOffer(offer); err != nil {
 		log.Warn().Err(err).Caller().Send()
